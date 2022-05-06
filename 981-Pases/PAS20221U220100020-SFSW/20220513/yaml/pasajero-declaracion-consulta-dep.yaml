@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   name: pasajero-declaracion-consulta-backend
+   namespace: controladuaneroms-pasajero
+spec:
+   replicas: 1
+   selector:
+      matchLabels:
+         name: pasajero-declaracion-consulta-backend
+   template:
+      metadata:
+         labels:
+            name: pasajero-declaracion-consulta-backend
+      spec:
+         imagePullSecrets:
+         -  name: registrysunat
+         nodeSelector:
+            node-role.kubernetes.io/worker: worker
+         containers:
+         -  image: integracion1-dr-local.artifactory.insi.sunat.peru/microservices/controladuaneroms-pasajero-declaracion-consulta-backend:1.0.19-1
+            name: pasajero-declaracion-consulta-backend
+            imagePullPolicy: Always
+            resources:
+               requests:
+                  memory: 256Mi
+                  cpu: 400m
+               limits:
+                  memory: 768Mi
+                  cpu: 500m
+            env:
+               - name: URL_CNX_ORACLE_DGBDSIGAD
+                 valueFrom:
+                   secretKeyRef:
+                     name: pasajero-declaracion-consulta-secrets
+                     key: URL_CNX_ORACLE_DGBDSIGAD
+               - name: URL_CNX_ORACLE_DCBDSIGAD
+                 valueFrom:
+                   secretKeyRef:
+                     name: pasajero-declaracion-consulta-secrets
+                     key: URL_CNX_ORACLE_DCBDSIGAD
+               - name: logginglevel
+                 valueFrom:
+                   configMapKeyRef:
+                     name: pasajero-declaracion-consulta-configmap
+                     key: logginglevel
+               - name: loggingloggerssunat
+                 valueFrom:
+                   configMapKeyRef:
+                     name: pasajero-declaracion-consulta-configmap
+                     key: loggingloggerssunat
+            volumeMounts:
+            -  mountPath: /config
+               name: configyaml-configmap
+            -  mountPath: /etc/localtime
+               name: tz-config
+            ports:
+            -  containerPort: 7136
+               protocol: TCP
+            -  containerPort: 17136
+               protocol: TCP
+            livenessProbe:
+               httpGet:
+                  path: /healthcheck
+                  port: 17136
+               initialDelaySeconds: 60
+               periodSeconds: 60
+               timeoutSeconds: 30
+            readinessProbe:
+               httpGet:
+                  path: /healthcheck
+                  port: 17136
+               initialDelaySeconds: 60
+               periodSeconds: 60
+               timeoutSeconds: 30
+         hostAliases:
+         # API SUNAT PERU
+         -  ip: 192.168.56.106
+            hostnames:
+            - api.sunat.peru
+         volumes:
+         -  name: configyaml-configmap
+            configMap:
+               name: pasajero-declaracion-consulta-configmap
+               items:
+               -  key: configyaml
+                  path: config.yaml
+         -  name: tz-config
+            hostPath:
+               path: /etc/localtime
